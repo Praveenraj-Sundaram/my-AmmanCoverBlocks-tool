@@ -1,0 +1,457 @@
+<!DOCTYPE html> 
+<html lang="en">                                                                                             
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tax Invoice</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div id="pdf-wrapper">
+  <div class="invoice-container">
+   <div class="header">
+  <div class="top-row">
+    <div class="gstin">GSTIN: 33BDAPA0576P1ZN</div>
+    <h1 class="title invoice-title">TAX INVOICE</h1>
+    <div class="call">Cell: 97901 80395</div>
+  </div>
+  <div class="company-name">SHREE AMMAN COVER BLOCKS</div>
+  <div class="company-address">No.64-b, Arikarpalayam, KARUR - 639 002</div>
+</div>
+    <hr class="divider">
+    <div class="section">
+    <div class="row to-section">
+  <!-- LEFT: Company Input -->
+  <div class="field to-field autocomplete-container">
+    <label for="customer-input"><div><strong>To</strong> M/s.</div></label>
+    <textarea id="customer-input" placeholder="Enter Company Name" autocomplete="off"></textarea>
+    <ul id="autocomplete-list" class="autocomplete-list hidden"></ul>
+
+    <!-- GSTIN + Vehicle moved HERE -->
+    <div class="mini-box">
+  <label for="gstin-no">GSTIN No.</label>
+  <input type="text" id="gstin-no" placeholder="Enter GSTIN Number" />
+</div>
+  </div>
+  <!-- RIGHT: Invoice No + Date -->
+  <div class="field vertical-right">
+    <div class="mini-box">
+      <label for="invoice-no">No.</label>
+      <input type="text" id="invoice-no" />
+    </div>
+    <div class="mini-box">
+  <label for="invoice-date">Date</label>
+  <input type="date" id="invoice-date" />
+  <span id="invoice-date-display" class="date-display-pdf" style="display: none;"></span>
+</div>
+    <div class="mini-box">
+  <label for="vehicle-no">Vehicle No.</label>
+  <input type="text" id="vehicle-no" placeholder="Enter Vehicle No." />
+</div>
+  </div>
+</div>
+<!-- NEW: wrap GSTIN + Vehicle in the same "vertical-right" style -->
+    </div> <!-- closes customer info section -->
+    <hr class="divider">
+    <div class="section-title">Item Details</div>
+    <div class="section table-section">
+      <table>
+        <thead>
+        <tr>
+         <th>Description</th>
+         <th>Qty</th>
+         <th>Rate</th>
+         <th>Amount</th>
+         <th></th> <!-- NEW: delete column header -->
+         </tr>
+</thead>
+        <tbody>
+  <tr>
+    <td>
+      <select>
+        <!-- …options… -->
+      </select>
+    </td>
+    <td><input type="text" placeholder="Qty" /></td>
+    <td><input type="text" placeholder="Rate" /></td>
+    <td><input type="text" value="0.00" readonly /></td>
+    <td class="row-actions"></td> <!-- NEW: delete button placeholder -->
+  </tr>
+</tbody>
+      </table>
+      <button class="add-item hide-for-print">Add Item</button>
+    </div>
+    <hr class="divider">
+    <div class="section-title">Payment Details</div>
+    <div class="section payment-details">
+
+      <div class="bank-details">
+        <strong>HSN Code: 6810</strong><br />
+        Bank Name: Karur Vysya Bank<br />
+        A/c Name: Shree Amman Cover Blocks<br />
+        A/c No: 1259115000003560<br />
+        IFSC: KVBL0001259
+      </div>
+
+      <div class="summary">
+        <div class="summary-item">Taxable Amount <span>₹0.00</span></div>
+        <div class="summary-item">CGST 9% <span>₹0.00</span></div>
+        <div class="summary-item">SGST 9% <span>₹0.00</span></div>
+        <div class="summary-item">Round Off <span>₹0.00</span></div>
+        <div class="summary-item total">Total <span>₹0.00</span></div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="section">
+  <div class="section-title">Amount in Words (Rupees)</div>
+  <textarea id="amount-in-words" placeholder="Amount in words" readonly></textarea>
+</div> <!-- closes amount-in-words section -->
+<hr class="divider">
+<div class="section signature">
+  <p>For SHREE AMMAN COVER BLOCKS</p>
+</div>
+    <div class="section buttons hide-for-print">
+  <button id="downloadBtn" class="save">💾 Download Invoice</button>
+  <button class="print">🖨️ Print Invoice</button>
+</div>
+    </div> <!-- closes .invoice-container -->
+    </div> <!-- closes #pdf-wrapper -->
+  <script>
+  const customerData = {
+    "A1 Steels": "33ABRFA2451R1ZY",
+    "KPS INFRA PROJECTS": "33ABCFK5101D1Z3",
+    "Sri Balaji Constructions": "33ABTFS1970K1ZM",
+    "RVP BUILDERS": "33AAWFR1526L1ZS",
+    "SRI VIGNESHWARA STEELS & HARDWARE": "33AVGPM0261L1ZN",
+    "RAM STEEL": "33CNNPR2172L1ZJ",
+    "SIVAKUMAR TRADING": "33APIPM3733P1ZI",
+    "GOLDEN STEEL COMPANY": "33AAGFG8878A1ZD",
+    "SRI SOLA RAJA TRADERS": "33BSPDPG9164R1Z5"
+  };
+
+  function formatIndianCurrency(amount) {
+  return '₹' + amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+  function updateAmount(row) {
+    const qtyInput = row.querySelector('input[placeholder="Qty"]');
+    const rateInput = row.querySelector('input[placeholder="Rate"]');
+    const amountInput = row.querySelector('input[readonly]');
+
+    const qty = parseFloat(qtyInput.value) || 0;
+    const rate = parseFloat(rateInput.value) || 0;
+    const amount = qty * rate;
+
+    amountInput.value = amount.toFixed(2);
+
+    updateTaxableAmount(); // Update Taxable Amount after calculating each row's amount
+  }
+
+  function updateTaxableAmount() {
+  const rows = document.querySelectorAll("tbody tr");
+  let totalAmount = 0;
+
+  rows.forEach(row => {
+    const amountInput = row.querySelector('input[readonly]');
+    totalAmount += parseFloat(amountInput.value) || 0;
+  });
+
+  const cgst = totalAmount * 0.09;
+  const sgst = totalAmount * 0.09;
+  const subtotalWithTax = totalAmount + cgst + sgst;
+
+  // Round to nearest whole number
+  const roundedTotal = Math.round(subtotalWithTax);
+  const roundOff = parseFloat((roundedTotal - subtotalWithTax).toFixed(2));
+
+  // Update DOM
+  const summarySpans = document.querySelectorAll(".summary-item span");
+  summarySpans[0].textContent = formatIndianCurrency(totalAmount);      // Taxable Amount
+  summarySpans[1].textContent = formatIndianCurrency(cgst);             // CGST 9%
+  summarySpans[2].textContent = formatIndianCurrency(sgst);             // SGST 9%
+  summarySpans[3].textContent = formatIndianCurrency(roundOff);         // Round Off
+  summarySpans[4].textContent = formatIndianCurrency(roundedTotal);     // Total
+
+  updateAmountInWords();
+}
+  function bindInputEvents(row) {
+    const qtyInput = row.querySelector('input[placeholder="Qty"]');
+    const rateInput = row.querySelector('input[placeholder="Rate"]');
+    [qtyInput, rateInput].forEach(input => {
+      input.addEventListener("input", () => updateAmount(row));
+    });
+  }
+// ⬇️ A small helper that inserts the ✖ button into a given row
+function addDeleteButton(row) {
+  let cell = row.querySelector(".row-actions");
+  if (!cell) {
+    cell = row.insertCell(-1);
+    cell.classList.add("row-actions");
+  }
+
+  if (!cell.firstChild) {
+    const btn = document.createElement("button");
+    btn.innerHTML = "&#10005;";
+    btn.className = "delete-btn hide-for-print";
+    btn.title = "Remove this row";
+
+    btn.addEventListener("click", () => {
+      const rows = document.querySelectorAll("tbody tr");
+      if (rows.length === 1) return; // don't delete if it's the only row
+      row.remove();
+      updateTaxableAmount();
+    });
+
+    cell.appendChild(btn);
+  }
+}
+
+// ⬇️ Call ONCE for the very first row so it gets a (disabled) placeholder
+function protectFirstRow() {
+  const firstRow = document.querySelector("tbody tr");
+  addDeleteButton(firstRow);
+  firstRow.querySelector(".delete-btn").style.visibility = "hidden";
+}
+// ⬇️ Helper to populate dropdown with options
+function populateSelect(row) {
+  const select = row.querySelector("select");
+  if (!select) return;
+
+  select.innerHTML = ""; // Clear existing options
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select Item";
+  select.appendChild(defaultOption);
+
+  const options = [
+    "Cover Block 25mm",
+    "Cover Block 40mm",
+    "Cover Block 50mm",
+    "Cover Block 75mm",
+    "Paver Block 60mm",
+    "Paver Block 80mm"
+  ];
+
+  options.forEach(text => {
+    const opt = document.createElement("option");
+    opt.value = text;
+    opt.textContent = text;
+    select.appendChild(opt);
+  });
+}
+  document.addEventListener("DOMContentLoaded", function () {
+    // --- Autocomplete logic ---
+    const input = document.getElementById("customer-input");
+    const list = document.getElementById("autocomplete-list");
+    const gstinInput = document.querySelector('input[placeholder="Enter GSTIN Number"]');
+
+    input.addEventListener("input", function () {
+      const val = this.value.toLowerCase();
+      list.innerHTML = "";
+      if (!val) {
+        list.classList.add("hidden");
+        return;
+      }
+
+      const matches = Object.keys(customerData).filter(name => name.toLowerCase().includes(val));
+      if (matches.length === 0) {
+        list.classList.add("hidden");
+        return;
+      }
+
+      matches.forEach(name => {
+        const item = document.createElement("li");
+        item.textContent = name;
+        item.addEventListener("click", function () {
+          input.value = name;
+          gstinInput.value = customerData[name];
+          list.classList.add("hidden");
+        });
+        list.appendChild(item);
+      });
+
+      list.classList.remove("hidden");
+    });
+
+    input.addEventListener("focus", function () {
+      input.dispatchEvent(new Event("input"));
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".autocomplete-container")) {
+        list.classList.add("hidden");
+      }
+    });
+
+    // --- Initial amount calculation binding for first row ---
+    const firstRow = document.querySelector("tbody tr");
+    populateSelect(firstRow); // 👈 Populate dropdown on first row
+    bindInputEvents(firstRow);
+    protectFirstRow(); // 👈 NEW: hide ✖ on first row
+
+    // --- Add Item functionality ---f
+    const addItemBtn = document.querySelector(".add-item");
+    const tableBody = document.querySelector("tbody");
+
+    addItemBtn.addEventListener("click", function () {
+  const newRow = firstRow.cloneNode(true);
+
+  // Clear inputs
+  newRow.querySelector("select").selectedIndex = 0;
+  newRow.querySelector('input[placeholder="Qty"]').value = "";
+  newRow.querySelector('input[placeholder="Rate"]').value = "";
+  newRow.querySelector('input[readonly]').value = "0.00";
+
+  // Refresh dropdown content
+  populateSelect(newRow);
+
+  // Refresh delete button
+  newRow.querySelector(".row-actions")?.replaceChildren();
+  addDeleteButton(newRow);
+
+  bindInputEvents(newRow);
+  tableBody.appendChild(newRow);
+  updateTaxableAmount();
+});
+  updateTaxableAmount(); 
+  const container = document.querySelector('.invoice-container');
+  console.log('Actual height:', container.scrollHeight);
+  });
+  function numberToWords(num) {
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",
+    "Eighteen", "Nineteen"
+  ];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const numToWords = (n) => {
+    if (n < 20) return a[n];
+    if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
+    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " and " + numToWords(n % 100) : "");
+    if (n < 100000) return numToWords(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + numToWords(n % 1000) : "");
+    if (n < 10000000) return numToWords(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + numToWords(n % 100000) : "");
+    return numToWords(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + numToWords(n % 10000000) : "");
+  };
+
+  return numToWords(num) + " Rupees Only";
+}
+function updateAmountInWords() {
+  const totalText = document.querySelector(".summary .total span").textContent;
+  const total = parseFloat(totalText.replace(/[₹,]/g, ""));
+  const words = numberToWords(Math.round(total));
+  document.getElementById("amount-in-words").value = words;
+}
+  document.getElementById("downloadBtn").addEventListener("click", function () {
+  // --- VALIDATION START ---
+  const customer = document.getElementById("customer-input").value.trim();
+  const date = document.querySelector('input[type="date"]').value.trim();
+
+  if (!customer) {
+    alert("Please enter/select the customer name.");
+    document.getElementById("customer-input").style.border = "1px solid red";
+    return;
+  }
+
+  if (!date) {
+    alert("Please select the invoice date.");
+    document.getElementById("invoice-date").style.border = "1px solid red";
+    return;
+  }
+
+  const rows = document.querySelectorAll("tbody tr");
+  for (let row of rows) {
+    const qty = row.querySelector('input[placeholder="Qty"]').value.trim();
+    const rate = row.querySelector('input[placeholder="Rate"]').value.trim();
+
+    if (!qty || isNaN(qty) || parseFloat(qty) <= 0) {
+      alert("Please enter a valid quantity in all rows.");
+      qty.style.border = "1px solid red";
+      return;
+    }
+
+    if (!rate || isNaN(rate) || parseFloat(rate) <= 0) {
+      alert("Please enter a valid rate in all rows.");
+      rate.style.border = "1px solid red";
+      return;
+    }
+  }
+  // --- VALIDATION END ---
+  // 🔁 Reformat Date Field (before PDF generation)
+const dateInput = document.getElementById("invoice-date");
+const dateDisplay = document.getElementById("invoice-date-display");
+const originalDate = dateInput.value;
+
+if (originalDate) {
+  const parts = originalDate.split("-");
+  const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  dateDisplay.textContent = formattedDate; // ← Shows this in PDF
+    dateInput.style.display = "none";
+  dateDisplay.style.display = "inline-block";
+}
+  const element = document.querySelector(".invoice-container");
+
+  // Hide buttons and delete icons before generating PDF
+const buttons = document.querySelector(".buttons");
+const deleteButtons = document.querySelectorAll(".delete-btn");
+const addItemBtn = document.querySelector(".add-item");
+
+buttons.style.display = "none";                 // hide Save/Print buttons
+addItemBtn.style.display = "none";              // hide Add Item button
+deleteButtons.forEach(btn => btn.style.display = "none"); // hide all ✖ buttons
+
+  const opt = {
+  margin: 0,
+  filename: 'invoice.pdf',
+  image: { type: 'jpeg', quality: 0.98 },
+  html2canvas: {
+    scale: 2,
+    useCORS: true,
+    scrollY: 0,
+    dpi: 300,
+    letterRendering: true
+  },
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+};
+  html2pdf().set(opt).from(element).save().then(() => {
+  // ✅ Restore hidden elements
+  buttons.style.display = "flex"; // or "block" based on your layout
+  addItemBtn.style.display = "inline-block";
+  deleteButtons.forEach(btn => btn.style.display = "inline-block");
+
+  // ✅ Restore date input
+  dateInput.style.display = "inline-block";
+  dateDisplay.style.display = "none";
+
+  // ✅ Restore original ISO date format (optional if you altered it)
+  if (originalDate) {
+    dateInput.value = originalDate;
+  }
+});
+});
+// Enable Print button functionality
+document.querySelector(".print").addEventListener("click", function () {
+  const buttons = document.querySelector(".buttons");
+  buttons.style.display = "none"; // hide buttons before printing
+
+  const originalContent = document.body.innerHTML;
+  const invoiceContent = document.querySelector(".invoice-container").outerHTML;
+
+  document.body.innerHTML = invoiceContent;
+
+  window.print();
+
+  // Restore original content after printing
+  document.body.innerHTML = originalContent;
+
+  // Re-bind print listener after DOM reset
+  document.querySelector(".print").addEventListener("click", arguments.callee);
+});
+</script>
+</body>
+</html>
